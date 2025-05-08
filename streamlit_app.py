@@ -9,10 +9,12 @@ from dotenv import load_dotenv
 import os
 import re
 import tempfile
+import streamlit as st
+
 
 # --- ініціалізація -----------------------------------------------------------
 load_dotenv()
-api_key = os.getenv("OPENAI_API_KEY")
+api_key = st.secrets("OPENAI_API_KEY")
 if not api_key:
     st.stop()  # покаже повідомлення «API key not found»
 
