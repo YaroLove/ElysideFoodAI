@@ -5,6 +5,9 @@ import re
 import os
 import asyncio
 import aiohttp
+import streamlit as st
+import openai
+
 from datetime import datetime
 from PIL import Image
 import pandas as pd
@@ -267,7 +270,7 @@ async def main():
     
     # Load API key
     load_dotenv()
-    api_key = os.getenv('OPENAI_API_KEY')
+    api_key = st.secrets('OPENAI_API_KEY')
     if not api_key:
         raise ValueError("OPENAI_API_KEY not found in environment variables")
     
