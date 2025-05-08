@@ -1,52 +1,45 @@
-# sheets_manager.py  — версія лише з GET‑запитами
+# sheets_manager.py
 import requests, json, re
 from datetime import datetime
 
 SCRIPT_URL = (
-    "https://script.google.com/macros/s/AKfycbzTYZsWua8jcshxso13O8CoIhgevSkPKmyDrWLqTvo3NwAUIDJFyuNuhFbZXbuas8YD/exec"
+    "https://script.google.com/macros/s/"
+    "AKfycbzTYZsWua8jcshxso13O8CoIhgevSkPKmyDrWLqTvo3NwAUIDJFyuNuhFbZXbuas8YD/exec"
 )
 
-
 class SheetsManager:
-    # ──────────── низькорівневий виклик ────────────
-    def _get(self, params: dict):
+    """Thin wrapper around Apps‑Script web‑app used as JSON API for Google Sheets."""
+
+    # ──────────────────────────────── READ ──────────────────────────────────
+    def get_users(self) -> list[str]:
         try:
-            r = requests.get(SCRIPT_URL, params=params, timeout=10)
-            r.raise_for_status()
-            # якщо Apps Script повертає JSON – розбираємо
-            if r.headers.get("content-type", "").startswith("application/json"):
-                return r.json()
+            r = requests.get(SCRIPT_URL, params={"path": "Users", "action": "read"}, timeout=10)
+            data = r.json()
+            return [row["Users"] for row in data.get("data", []) if row.get("Users")]
+        except Exception as e:
+            print("Error get_users:", e)
+            return []
+
+    # ──────────────────────────────── WRITE (single cell) ───────────────────
+    def add_user(self, username: str) -> str:
+        try:
+            r = requests.get(
+                SCRIPT_URL,
+                params={"path": "Users", "action": "write", "Users": username},
+                timeout=10,
+            )
             return r.text
         except Exception as e:
-            print("⇢ Google Sheets error:", e)
-            return None
+            return f"Error add_user: {e}"
 
-    # ──────────────── Users лист ───────────────────
-    def get_users(self) -> list[str]:
-        data = self._get({"path": "Users", "action": "read"})
-        if isinstance(data, dict) and "data" in data:
-            return [row["Users"] for row in data["data"] if row["Users"]]
-        return []
-
-    def add_user(self, username: str) -> str:
-        return str(
-            self._get(
-                {
-                    "path": "Users",
-                    "action": "write",
-                    "Users": username,
-                }
-            )
-        )
-
-    # ──────────────── Results лист ─────────────────
-def store_analysis_result(self, username: str, result: dict) -> str:
-        """Append one row to ‘Results’ sheet via GET → doGet(action='write')."""
+    # ──────────────────────────────── WRITE (one row) ───────────────────────
+    def store_analysis_result(self, username: str, result: dict) -> str:
+        """Append one row to ‘Results’ via GET => doGet(action='write')."""
         try:
             plants = result.get("food_items", [])
             row = {
-                "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "Username":   username,
+                "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "Username": username,
                 "Calories":   result["llm_estimate"].get("calories", ""),
                 "Protein":    result["llm_estimate"].get("protein", ""),
                 "Carbs":      result["llm_estimate"].get("carbohydrates", ""),
@@ -57,7 +50,6 @@ def store_analysis_result(self, username: str, result: dict) -> str:
                 "Image_URL":  result["image_url"].split("/")[-1],
             }
 
-            # усі пари header=value йдуть GET‑параметрами
             params = {"path": "Results", "action": "write", **row}
             print("⇢ sending GET → Sheets\n", json.dumps(params, indent=2, ensure_ascii=False))
 
@@ -68,10 +60,12 @@ def store_analysis_result(self, username: str, result: dict) -> str:
         except Exception as e:
             return f"Error storing result: {e}"
 
-
-    # (опційно) читання історії
+    # ──────────────────────────────── READ (history) ────────────────────────
     def get_user_results(self, username: str) -> list[dict]:
-        data = self._get({"path": "Results", "action": "read"})
-        if isinstance(data, dict) and "data" in data:
-            return [r for r in data["data"] if r.get("Username") == username]
-        return []
+        try:
+            r = requests.get(SCRIPT_URL, params={"path": "Results", "action": "read"}, timeout=10)
+            data = r.json()
+            return [row for row in data.get("data", []) if row.get("Username") == username]
+        except Exception as e:
+            print("Error get_user_results:", e)
+            return []
