@@ -1,14 +1,14 @@
 # streamlit_app.py
 import streamlit as st
-import asyncio, re, tempfile
+import asyncio, re, tempfile, base64
 from dietgpt_start import CalorieEstimator, extract_nutrition
 from nutrition_matcher import enhance_nutrition_estimate
 from sheets_manager import SheetsManager
 
-# ─────────────────────────────  page config  ────────────────────────────────
+# ────────── Page config ──────────────────────────────────────────────────────
 st.set_page_config("Elyside Food Analysis", "🍽️", layout="centered")
 
-# ───────────────────────────────  styles  ───────────────────────────────────
+# ────────── Styles (адаптація вашого Bootstrap CSS) ─────────────────────────
 st.markdown(
     """
 <style>
@@ -29,97 +29,104 @@ img.food-image{border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.08);
     unsafe_allow_html=True,
 )
 
-# ────────────────────────────  helpers  ─────────────────────────────────────
+# ────────── Helpers ─────────────────────────────────────────────────────────
 sheets = SheetsManager()
 api_key = st.secrets["OPENAI_API_KEY"]
 
 def extract_food_items(text: str):
-    sec = re.search(r"Food Items:\s*((?:- [^\\n]+\\n?)+)", text)
-    return re.findall(r"- ([^\\n]+)", sec.group(1)) if sec else []
+    """
+    Витягаємо список пунктів після 'Food Items:' доки не зустрінемо
+    порожній рядок або кінець тексту.
+    """
+    sec = re.search(r"Food Items?:\\s*([\\s\\S]*?)(?:\\n\\s*\\n|$)", text, re.IGNORECASE)
+    if not sec:
+        return []
+    lines = [re.sub(r"^-\\s*", "", l).strip() for l in sec.group(1).splitlines()]
+    return [l for l in lines if l]
 
-async def analyze(path):
+async def analyze(path: str):
     async with CalorieEstimator(api_key=api_key) as est:
         res = await est.estimate_calories(path)
         if not res["success"]:
             return {"success": False, "error": res["response"]}
 
-        nutri = extract_nutrition(res["response"])
-        food  = extract_food_items(res["response"])
-        enhanced = enhance_nutrition_estimate(nutri, food)
+        nutri  = extract_nutrition(res["response"])
+        plants = extract_food_items(res["response"])
+        enhanced = enhance_nutrition_estimate(nutri, plants)
 
         return {
             "success": True,
             **enhanced,
             "details": res["response"],
-            "food_items": food,
+            "food_items": plants,
             "image_url": path,
         }
 
-# ───────────────────────────────  UI  ───────────────────────────────────────
-with st.container():
-    st.markdown('<div class="main-card">', unsafe_allow_html=True)
-    st.markdown('<h1 class="text-center mb-2">Elyside Food Analysis</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="text-center text-muted fst-italic mb-4">by Yaroslav V</p>', unsafe_allow_html=True)
+# ────────── UI ──────────────────────────────────────────────────────────────
+st.markdown('<div class="main-card">', unsafe_allow_html=True)
+st.markdown('<h1 class="text-center mb-2">Elyside Food Analysis</h1>', unsafe_allow_html=True)
+st.markdown('<p class="text-center text-muted fst-italic mb-4">by Yaroslav V</p>', unsafe_allow_html=True)
 
-    # ── user management row ────────────────────────────────────────────────
-    col_sel, col_new = st.columns(2, gap="medium")
-    with col_sel:
-        users = ["-- new --"] + sheets.get_users()
-        user = st.selectbox("Select user", users, label_visibility="collapsed")
-    with col_new:
-        new_username = st.text_input("New username", label_visibility="collapsed")
-        add_user     = st.button("Add User", use_container_width=True, key="addUser")
-        if add_user and new_username.strip():
-            sheets.add_user(new_username.strip())
-            st.success("User added!")
-            st.experimental_rerun()
-        if user == "-- new --":
-            user = new_username.strip()
+# ── user management row ─────────────────────────────────────────────────────
+col_sel, col_new = st.columns(2, gap="medium")
+with col_sel:
+    users = ["-- new --"] + sheets.get_users()
+    user  = st.selectbox("", users, label_visibility="collapsed")
+with col_new:
+    new_username = st.text_input("", placeholder="New username", label_visibility="collapsed")
+    if st.button("Add User", use_container_width=True) and new_username.strip():
+        sheets.add_user(new_username.strip())
+        st.success("User added!")
+        st.experimental_rerun()
+if user == "-- new --":
+    user = new_username.strip()
 
-    # ── upload & analyze ───────────────────────────────────────────────────
-    uploaded = st.file_uploader("Upload Food Image", type=["jpg","jpeg","png","webp"])
-    analyze_btn = st.button("Analyze", disabled=not(uploaded and user), use_container_width=True)
+# ── upload & analyze ───────────────────────────────────────────────────────
+uploaded    = st.file_uploader("Upload Food Image", type=["jpg","jpeg","png","webp"])
+analyze_btn = st.button("Analyze", disabled=not(uploaded and user), use_container_width=True)
 
-    if analyze_btn and uploaded:
-        with st.spinner("Analyzing your food image…"):
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
-                tmp.write(uploaded.read())
-                tmp_path = tmp.name
-            result = asyncio.run(analyze(tmp_path))
+if analyze_btn and uploaded:
+    with st.spinner("Analyzing your food image…"):
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
+            tmp.write(uploaded.read()); tmp_path = tmp.name
+        result = asyncio.run(analyze(tmp_path))
 
-        if result["success"]:
-            # ── show result ────────────────────────────────────────────────
-            col_img, col_data = st.columns([1,1], gap="large")
-            with col_img:
-                st.markdown(
-                    f'<img src="data:image/jpeg;base64,{open(tmp_path,"rb").read().hex()}" '
-                    'class="food-image"/>',
-                    unsafe_allow_html=True
-                )
-            with col_data:
-                # nutrition card
-                st.markdown('<div class="nutrition-card">', unsafe_allow_html=True)
-                st.markdown('<div class="section-title">LLM estimate</div>', unsafe_allow_html=True)
-                llm = result["llm_estimate"]
-                st.markdown(f"""
-                Calories: **{llm.get('calories','–')} kcal**  
-                Protein: **{llm.get('protein','–')} g**  
-                Carbs: **{llm.get('carbohydrates','–')} g**  
-                Fat: **{llm.get('fat','–')} g**  
-                Fiber: **{llm.get('fiber','–')} g**
-                """)
-                st.markdown('</div>', unsafe_allow_html=True)
-                # plant card
-                st.markdown('<div class="plant-card">', unsafe_allow_html=True)
-                st.markdown('<div class="section-title">Plant‑based ingredients</div>', unsafe_allow_html=True)
-                st.markdown("<ul>" + "".join(f"<li>{p}</li>" for p in result["food_items"]) + "</ul>", unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+    if result["success"]:
+        # ── show result ────────────────────────────────────────────────────
+        col_img, col_data = st.columns([1,1], gap="large")
 
-                if st.button("Submit to Google Sheets", type="primary", key="submitData", use_container_width=True):
-                    sheets.store_analysis_result(user, result)
-                    st.success("Data submitted successfully!")
+        # image
+        with col_img:
+            img_b64 = base64.b64encode(open(tmp_path, "rb").read()).decode()
+            st.markdown(
+                f'<img src="data:image/jpeg;base64,{img_b64}" class="food-image"/>',
+                unsafe_allow_html=True
+            )
 
-        else:
-            st.error(result["error"])
+        # nutrition + plants
+        with col_data:
+            st.markdown('<div class="nutrition-card">', unsafe_allow_html=True)
+            st.markdown('<div class="section-title">LLM estimate</div>', unsafe_allow_html=True)
+            llm = result["llm_estimate"]
+            st.markdown(f"""
+            Calories: **{llm.get('calories','–')} kcal**  
+            Protein: **{llm.get('protein','–')} g**  
+            Carbs: **{llm.get('carbohydrates','–')} g**  
+            Fat: **{llm.get('fat','–')} g**  
+            Fiber: **{llm.get('fiber','–')} g**
+            """)
+            st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown('<div class="plant-card">', unsafe_allow_html=True)
+            st.markdown('<div class="section-title">Plant‑based ingredients</div>', unsafe_allow_html=True)
+            plants_html = "".join(f"<li>{p}</li>" for p in result["food_items"])
+            st.markdown(f"<ul>{plants_html}</ul>", unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            if st.button("Submit to Google Sheets", type="primary",
+                         use_container_width=True):
+                sheets.store_analysis_result(user, result)
+                st.success("Data submitted successfully!")
+
+    else:
+        st.error(result["error"])
