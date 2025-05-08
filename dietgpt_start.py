@@ -15,7 +15,6 @@ from tenacity import (
     retry, wait_exponential, stop_after_attempt, retry_if_exception_type
 )
 from tqdm import tqdm
-from dotenv import load_dotenv
 from prompt import SYSTEM_PROMPT
 import ssl
 import certifi
@@ -269,7 +268,6 @@ async def main():
     results_dir = os.path.join(script_dir, "estimation_results")
     
     # Load API key
-    load_dotenv()
     api_key = st.secrets['OPENAI_API_KEY']
     if not api_key:
         raise ValueError("OPENAI_API_KEY not found in environment variables")
