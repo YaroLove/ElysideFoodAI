@@ -270,7 +270,7 @@ async def main():
     
     # Load API key
     load_dotenv()
-    api_key = st.secrets('OPENAI_API_KEY')
+    api_key = st.secrets['OPENAI_API_KEY']
     if not api_key:
         raise ValueError("OPENAI_API_KEY not found in environment variables")
     
