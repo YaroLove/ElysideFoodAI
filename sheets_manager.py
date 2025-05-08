@@ -57,8 +57,13 @@ class SheetsManager:
             print("HTTP status:", r.status_code)
             print("Body:", r.text[:200])
             print("Sending to sheets:", json.dumps(payload, indent=2))
-            r = requests.post(SCRIPT_URL, json=payload, timeout=10)
-            return r.text
+            r = requests.post(SCRIPT_URL,
+                  json=payload,
+                  timeout=10)
+
+        print("⇢ Google Sheets status:", r.status_code)
+        print("⇢ Google Sheets body  :", r.text[:200])   # обрізаємо, щоб лог не «лопав»
+        return r.text          # ← це залишаємо
         except Exception as e:
             return f"Error storing result: {e}"
 
