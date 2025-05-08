@@ -40,27 +40,34 @@ class SheetsManager:
         )
 
     # ──────────────── Results лист ─────────────────
-    def store_analysis_result(self, username: str, result: dict) -> str:
-        plant_items = result.get("food_items", [])
-        row = {
-            "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "Username": username,
-            "Calories": result["llm_estimate"].get("calories"),
-            "Protein": result["llm_estimate"].get("protein"),
-            "Carbs": result["llm_estimate"].get("carbohydrates"),
-            "Fat": result["llm_estimate"].get("fat"),
-            "Fiber": result["llm_estimate"].get("fiber"),
-            "Number_of_unique_plants_this_meal": len(set(plant_items)),
-            "Plant_based_Ingredients": ", ".join(plant_items),
-            "Image_URL": result["image_url"].split("/")[-1],
-        }
+def store_analysis_result(self, username: str, result: dict) -> str:
+        """Append one row to ‘Results’ sheet via GET → doGet(action='write')."""
+        try:
+            plants = result.get("food_items", [])
+            row = {
+                "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "Username":   username,
+                "Calories":   result["llm_estimate"].get("calories", ""),
+                "Protein":    result["llm_estimate"].get("protein", ""),
+                "Carbs":      result["llm_estimate"].get("carbohydrates", ""),
+                "Fat":        result["llm_estimate"].get("fat", ""),
+                "Fiber":      result["llm_estimate"].get("fiber", ""),
+                "Number_of_unique_plants_this_meal": len(set(plants)),
+                "Plant_based_Ingredients": ", ".join(plants),
+                "Image_URL":  result["image_url"].split("/")[-1],
+            }
 
-        params = {"path": "Results", "action": "write", **row}
-        print("⇢ Sending row (GET):")
-        print(json.dumps(row, indent=2, ensure_ascii=False))
-        resp = self._get(params)
-        print("⇢ Sheets response:", resp)
-        return str(resp)
+            # усі пари header=value йдуть GET‑параметрами
+            params = {"path": "Results", "action": "write", **row}
+            print("⇢ sending GET → Sheets\n", json.dumps(params, indent=2, ensure_ascii=False))
+
+            r = requests.get(SCRIPT_URL, params=params, timeout=10)
+            print("⇠ Google Sheets status:", r.status_code, r.text[:120])
+            r.raise_for_status()
+            return r.text
+        except Exception as e:
+            return f"Error storing result: {e}"
+
 
     # (опційно) читання історії
     def get_user_results(self, username: str) -> list[dict]:
