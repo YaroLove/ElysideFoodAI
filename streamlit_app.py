@@ -74,10 +74,10 @@ with c1:
     user  = st.selectbox("Select user", users)
 with c2:
     new_user = st.text_input("New username")
-    if st.button("Add User") and new_user.strip():
-        sheets.add_user(new_user.strip())
-        st.success("User added!")
-        st.experimental_rerun()
+if st.button("Add User") and new_user.strip():
+    sheets.add_user(new_user.strip())
+    st.success("User added!")
+    st.rerun()            
 
 if user == "-- new --":
     user = new_user.strip()
