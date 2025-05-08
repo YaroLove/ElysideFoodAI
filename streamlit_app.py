@@ -8,7 +8,6 @@ from sheets_manager import SheetsManager
 # ──────────────────────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Elyside Food Analysis", page_icon="🍽️", layout="centered")
 
-# custom CSS (скопійовано з index.html, трохи адаптовано під Streamlit)
 st.markdown("""
 <style>
 body { background:#f6f8fa; }
@@ -17,7 +16,7 @@ div[data-testid="stSidebar"] {background:#fff;}
 .section-title {font-size:1.1rem;font-weight:600;margin:0 0 0.5rem;color:#1976d2;}
 .nutrition-card {background:#e3f2fd;border-radius:12px;padding:1rem 1.2rem;box-shadow:0 1px 6px rgba(25,118,210,0.07);}
 .plant-card {background:#f0f4c3;border-radius:12px;padding:1rem 1.2rem;box-shadow:0 1px 6px rgba(205,220,57,0.07);}
-.food-image {border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.08);max-height:320px;object-fit:cover;}
+img.food-image {border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.08);max-height:320px;object-fit:cover;width:100%;}
 .submit-btn {width:100%;font-size:1.05rem;padding:0.6rem 0;border-radius:8px;margin-top:1rem;}
 </style>
 """, unsafe_allow_html=True)
@@ -45,6 +44,7 @@ async def analyze(path):
             **enhanced,
             "details": res["response"],
             "food_items": food,
+            "image_url": path,  # 🧩 додано для Google Sheets
         }
 
 # ───────────────────────────  UI  ────────────────────────────────────────────
@@ -57,21 +57,23 @@ user   = st.selectbox("Select user", users)
 if user == "-- new --":
     user = st.text_input("New username")
 
-uploaded = st.file_uploader("Upload food image", type=["jpg","jpeg","png","webp"])
+uploaded = st.file_uploader("Upload food image", type=["jpg", "jpeg", "png", "webp"])
 submit_btn = st.button("Analyze", disabled=not(uploaded and user))
 
 if submit_btn:
     with st.spinner("Analyzing your food image…"):
         with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
-            tmp.write(uploaded.read()); tmp_path = tmp.name
+            tmp.write(uploaded.read())
+            tmp_path = tmp.name
         result = asyncio.run(analyze(tmp_path))
 
     if result["success"]:
-        col_img, col_data = st.columns([1,1])
+        col_img, col_data = st.columns([1, 1])
         with col_img:
-            st.image(uploaded, use_column_width=True, output_format="JPEG",
-                     caption="Uploaded food", clamp=True, channels="RGB",
-                     **{"class": "food-image"})   # inject class for CSS
+            st.markdown(
+                f'<img src="data:image/jpeg;base64,{uploaded.getvalue().hex()}" class="food-image" />',
+                unsafe_allow_html=True
+            )
         with col_data:
             st.markdown('<div class="nutrition-card">', unsafe_allow_html=True)
             st.markdown('<div class="section-title">LLM estimate</div>', unsafe_allow_html=True)
