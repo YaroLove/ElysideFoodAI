@@ -5,14 +5,12 @@ import asyncio
 from dietgpt_start import CalorieEstimator, extract_nutrition
 from nutrition_matcher import enhance_nutrition_estimate
 from sheets_manager import SheetsManager
-from dotenv import load_dotenv
 import os
 import re
 import tempfile
 
 
 # --- ініціалізація -----------------------------------------------------------
-load_dotenv()
 api_key = st.secrets["OPENAI_API_KEY"]
 if not api_key:
     st.stop()  # покаже повідомлення «API key not found»
@@ -27,7 +25,7 @@ def extract_food_items(response: str):
     return re.findall(r"- ([^\n]+)", food_section.group(1))
 
 async def analyze(path):
-    async with CalorieEstimator(api_key) as est:
+    async with CalorieEstimator(api_key=api_key) as est:
         res = await est.estimate_calories(path)
         if not res["success"]:
             return res
