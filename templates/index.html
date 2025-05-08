@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elyside Food Analysis</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: #f6f8fa;
+        }
+        .main-card {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 2px 16px rgba(0,0,0,0.07);
+            padding: 32px 32px 24px 32px;
+            margin-top: 40px;
+        }
+        .section-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #1976d2;
+        }
+        .nutrition-card {
+            background: #e3f2fd;
+            border-radius: 12px;
+            padding: 20px 24px;
+            margin-bottom: 18px;
+            box-shadow: 0 1px 6px rgba(25, 118, 210, 0.07);
+        }
+        .plant-card {
+            background: #f0f4c3;
+            border-radius: 12px;
+            padding: 18px 24px;
+            margin-bottom: 18px;
+            box-shadow: 0 1px 6px rgba(205, 220, 57, 0.07);
+        }
+        .food-image {
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            margin-bottom: 18px;
+            max-height: 320px;
+            object-fit: cover;
+        }
+        .submit-btn {
+            width: 100%;
+            font-size: 1.1rem;
+            padding: 12px 0;
+            border-radius: 8px;
+            margin-top: 18px;
+        }
+        .user-management {
+            margin-bottom: 24px;
+        }
+        .history-section {
+            margin-top: 30px;
+        }
+        .history-item {
+            border: 1px solid #eee;
+            border-radius: 10px;
+            padding: 18px;
+            margin-bottom: 18px;
+            background: #fafbfc;
+        }
+        .plant-list {
+            margin: 0;
+            padding-left: 18px;
+        }
+        .plant-list li {
+            margin-bottom: 2px;
+        }
+        .fiber-row {
+            font-weight: 500;
+            color: #388e3c;
+        }
+        @media (max-width: 900px) {
+            .main-card { padding: 16px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="main-card mx-auto" style="max-width: 800px;">
+            <h1 class="text-center mb-2">Elyside Food Analysis</h1>
+        <p class="text-center text-muted fst-italic mb-4">by Yaroslav V</p>
+            <div class="user-management row align-items-center mb-3">
+                <div class="col-md-6 mb-2 mb-md-0">
+                    <select id="userSelect" class="form-select">
+                        <option value="">Select User</option>
+                        {% for user in users %}
+                        <option value="{{ user }}">{{ user }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <div class="input-group">
+                        <input type="text" id="newUsername" class="form-control" placeholder="New username">
+                        <button class="btn btn-outline-primary" id="addUserBtn">Add User</button>
+                    </div>
+                </div>
+            </div>
+                <form id="uploadForm" class="mb-4">
+                    <div class="mb-3">
+                        <label for="file" class="form-label">Upload Food Image</label>
+                        <input type="file" class="form-control" id="file" name="file" accept="image/*">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Analyze</button>
+                </form>
+                <div id="loading" class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Analyzing your food image...</p>
+                </div>
+                <div id="result">
+                    <div class="row">
+                        <div class="col-md-6">
+                        <img id="foodImage" class="food-image w-100" alt="Uploaded food">
+                        </div>
+                        <div class="col-md-6">
+                        <div class="nutrition-card mb-3">
+                            <div class="section-title">LLM Estimate</div>
+                                    <div id="llmNutrition"></div>
+                            <div id="fiber" class="fiber-row"></div>
+                            <div id="plantVariety" class="mt-2"></div>
+                                </div>
+                        <div class="plant-card mb-3">
+                            <div class="section-title">Plant-based Ingredients</div>
+                            <ul id="plantSection" class="plant-list"></ul>
+                        </div>
+                        <button id="submitDataBtn" class="btn btn-success submit-btn" style="display:none;">Submit data</button>
+                        <div id="submitStatus" class="mt-2"></div>
+                    </div>
+                </div>
+            </div>
+            <div id="historySection" class="history-section">
+                <h3>Analysis History</h3>
+                <div id="historyContent"></div>
+            </div>
+        </div>
+    </div>
+    <script>
+        let lastAnalysisData = null;
+        document.getElementById('userSelect').addEventListener('change', function() {
+            const analyzeBtn = document.querySelector('#uploadForm button[type="submit"]');
+            analyzeBtn.disabled = !this.value;
+            if (this.value) {
+                loadUserHistory(this.value);
+            } else {
+                document.getElementById('historySection').style.display = 'none';
+            }
+        });
+        document.getElementById('addUserBtn').addEventListener('click', async function() {
+            const username = document.getElementById('newUsername').value.trim();
+            if (!username) {
+                alert('Please enter a username');
+                return;
+            }
+            try {
+                const response = await fetch('/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    const select = document.getElementById('userSelect');
+                    const option = new Option(username, username);
+                    select.add(option);
+                    select.value = username;
+                    document.getElementById('newUsername').value = '';
+                    document.querySelector('#uploadForm button[type="submit"]').disabled = false;
+                    loadUserHistory(username);
+                } else {
+                    alert('Error adding user: ' + data.error);
+                }
+            } catch (error) {
+                alert('Error adding user: ' + error.message);
+            }
+        });
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('userSelect').value;
+            if (!username) {
+                alert('Please select a user first');
+                return;
+            }
+            const formData = new FormData();
+            const fileInput = document.getElementById('file');
+            formData.append('file', fileInput.files[0]);
+            formData.append('username', username);
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('result').style.display = 'none';
+            try {
+                const response = await fetch('/estimate', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById('foodImage').src = data.image_url;
+                    const llmHtml = `
+                        <div>Calories: <b>${data.llm_estimate.calories}</b> kcal</div>
+                        <div>Protein: <b>${data.llm_estimate.protein}</b>g</div>
+                        <div>Carbs: <b>${data.llm_estimate.carbohydrates}</b>g</div>
+                        <div>Fat: <b>${data.llm_estimate.fat}</b>g</div>
+                    `;
+                    document.getElementById('llmNutrition').innerHTML = llmHtml;
+                    document.getElementById('fiber').innerHTML = `Fiber: <b>${data.llm_estimate.fiber ?? 0}</b>g`;
+                    // Plant-based ingredients for this photo
+                    let plants = [];
+                    if (data.details) {
+                        const plantSection = /Plant-based Ingredients:\s*([\s\S]+)/.exec(data.details);
+                        if (plantSection) {
+                            plants = plantSection[1].split('\n').filter(x => x.trim().startsWith('-')).map(x => x.replace('-', '').trim());
+                        }
+                    }
+                    document.getElementById('plantSection').innerHTML = plants.map(p => `<li>${p}</li>`).join('');
+                    document.getElementById('result').style.display = 'block';
+                    lastAnalysisData = {
+                        username,
+                        llm_estimate: data.llm_estimate,
+                        db_estimate: data.db_estimate,
+                        food_items: data.food_items,
+                        food_matches: data.food_matches,
+                        unmatched_items: data.unmatched_items,
+                        confidence_score: data.confidence_score,
+                        details: data.details,
+                        image_url: data.image_url,
+                        plant_items: plants
+                    };
+                    document.getElementById('submitDataBtn').style.display = 'block';
+                    document.getElementById('submitStatus').innerHTML = '';
+                } else {
+                    alert('Error: ' + data.error);
+                    document.getElementById('submitDataBtn').style.display = 'none';
+                    document.getElementById('submitStatus').innerHTML = '';
+                }
+            } catch (error) {
+                alert('Error analyzing image: ' + error.message);
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        });
+        document.getElementById('submitDataBtn').addEventListener('click', async function() {
+            if (!lastAnalysisData) return;
+            this.disabled = true;
+            document.getElementById('submitStatus').innerHTML = 'Submitting...';
+            try {
+                const response = await fetch('/submit-analysis', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(lastAnalysisData)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    document.getElementById('submitStatus').innerHTML = '<span class="text-success">Data submitted successfully!</span>';
+                    loadUserHistory(lastAnalysisData.username);
+                } else {
+                    document.getElementById('submitStatus').innerHTML = '<span class="text-danger">Error: ' + (result.error || 'Unknown error') + '</span>';
+                }
+            } catch (err) {
+                document.getElementById('submitStatus').innerHTML = '<span class="text-danger">Error: ' + err.message + '</span>';
+            }
+            this.disabled = false;
+        });
+        async function loadUserHistory(username) {
+            try {
+                const response = await fetch(`/user-results/${username}`);
+                const results = await response.json();
+                const historySection = document.getElementById('historySection');
+                const historyContent = document.getElementById('historyContent');
+                if (results.length > 0) {
+                    historySection.style.display = 'block';
+                    historyContent.innerHTML = results.map(result => `
+                        <div class="history-item">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <img src="${result.image_url}" class="img-fluid rounded" alt="Food image">
+                                </div>
+                                <div class="col-md-8">
+                                    <p><strong>Date:</strong> ${result.timestamp}</p>
+                                    <p><strong>LLM Calories:</strong> ${result.llm_calories}</p>
+                                    <p><strong>Fiber:</strong> ${result.fiber ?? 0}g</p>
+                                    <p><strong>Food Items:</strong></p>
+                                    <ul>
+                                        ${result.food_items.map(item => `<li>${item}</li>`).join('')}
+                                    </ul>
+                                    <p><strong>Plant-based Ingredients:</strong></p>
+                                    <ul>
+                                        ${(result.plant_items || []).map(item => `<li>${item}</li>`).join('')}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    historySection.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error loading history:', error);
+            }
+        }
+    </script>
+</body>
+</html> 
