@@ -4,7 +4,6 @@ from werkzeug.utils import secure_filename
 import asyncio
 from dietgpt_start import CalorieEstimator, extract_nutrition
 from nutrition_matcher import enhance_nutrition_estimate
-from dotenv import load_dotenv
 import re
 from sheets_manager import SheetsManager
 import streamlit as st
@@ -35,7 +34,6 @@ def extract_food_items(response: str) -> list:
     return items
 
 # Load API key once at startup
-load_dotenv()
 api_key = st.secrets['OPENAI_API_KEY']
 if not api_key:
     raise ValueError("OPENAI_API_KEY not found in environment variables")
