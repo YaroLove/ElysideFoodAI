@@ -9,3 +9,5 @@ tenacity==8.2.3
 tqdm==4.66.2
 pandas>=2.2.2                  # wheels for 3.12 start at 2.2.0
 streamlit>=1.33.0              # (if you install Streamlit here)
+fuzzywuzzy==0.18.0         # pure‑Python, works on Py 3.12
+python-Levenshtein>=0.24.0 # optional speed‑up, wheels for 3.12 exist
