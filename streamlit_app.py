@@ -12,9 +12,6 @@ st.markdown(
     """
 <style>
 body {background:#f6f8fa;}
-.main-card {background:#fff;border-radius:16px;
-            box-shadow:0 2px 16px rgba(0,0,0,0.07);
-            padding:32px 32px 24px;margin:40px auto;max-width:800px;}
 .section-title{font-size:1.2rem;font-weight:600;margin-bottom:12px;color:#1976d2;}
 .nutrition-card{background:#e3f2fd;border-radius:12px;padding:20px 24px;margin-bottom:18px;
                 box-shadow:0 1px 6px rgba(25,118,210,0.07);}
