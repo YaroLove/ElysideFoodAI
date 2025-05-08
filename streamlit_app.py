@@ -27,14 +27,25 @@ def extract_food_items(response: str):
 async def analyze(path):
     async with CalorieEstimator(api_key=api_key) as est:
         res = await est.estimate_calories(path)
+
         if not res["success"]:
+            # res уже містить success = False
             return res
+
         nutri = extract_nutrition(res["response"])
         food  = extract_food_items(res["response"])
-        return enhance_nutrition_estimate(nutri, food) | {
+
+        # те, що повертає наша «заглушка»
+        enhanced = enhance_nutrition_estimate(nutri, food)
+
+        # об’єднуємо все й ДОДАЄМО success=True
+        return {
+            "success": True,
+            **enhanced,
             "details": res["response"],
             "food_items": food,
         }
+
 
 # --- Streamlit UI ------------------------------------------------------------
 st.title("Elyside Food AI 🍽️")
@@ -55,7 +66,7 @@ if uploaded and user:
         result = asyncio.run(analyze(tmp_path))
 
     if result["success"]:
-        st.success("Готово!")
+        st.success("Success!")
         st.json(result["llm_estimate"])
         if st.button("Submit to Google Sheets"):
             sheets.store_analysis_result(user, result)
