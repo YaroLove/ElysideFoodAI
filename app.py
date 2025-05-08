@@ -36,7 +36,7 @@ def extract_food_items(response: str) -> list:
 
 # Load API key once at startup
 load_dotenv()
-api_key = st.secrets('OPENAI_API_KEY')
+api_key = st.secrets['OPENAI_API_KEY']
 if not api_key:
     raise ValueError("OPENAI_API_KEY not found in environment variables")
 
