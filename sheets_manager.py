@@ -40,37 +40,26 @@ class SheetsManager:
     def store_analysis_result(self, username, result):
         """Store analysis result in the spreadsheet"""
         try:
-            plant_items = []
-            if 'plant_items' in result and isinstance(result['plant_items'], list):
-                plant_items = result['plant_items']
-            elif 'details' in result:
-                plant_section = re.search(r'Plant-based Ingredients:\s*((?:- [^\n]+\n?)+)', result['details'])
-                if plant_section:
-                    plant_items = re.findall(r'- ([^\n]+)', plant_section.group(1))
-            # Кількість унікальних рослин у цьому прийомі їжі (без нормалізації)
-            num_unique_plants = len(set([p.strip() for p in plant_items]))
+            plant_items = result.get("plant_items", [])
             row_data = {
-                'Timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'Username': username,
-                'Calories': result['llm_estimate'].get('calories', 0),
-                'Protein': result['llm_estimate'].get('protein', 0),
-                'Carbs': result['llm_estimate'].get('carbohydrates', 0),
-                'Fat': result['llm_estimate'].get('fat', 0),
-                'Fiber': result['llm_estimate'].get('fiber', 0),
-                'Number_of_unique_plants_this_meal': num_unique_plants,
-                'Plant_based_Ingredients': ', '.join([p.strip() for p in plant_items]),
-                'Image_URL': result['image_url'].replace('/uploads', '')
+                "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "Username": username,
+                "Calories": result["llm_estimate"].get("calories"),
+                "Protein":  result["llm_estimate"].get("protein"),
+                "Carbs":    result["llm_estimate"].get("carbohydrates"),
+                "Fat":      result["llm_estimate"].get("fat"),
+                "Fiber":    result["llm_estimate"].get("fiber"),
+                "Number_of_unique_plants_this_meal": len(set(plant_items)),
+                "Plant_based_Ingredients": ", ".join(plant_items),
+                "Image_URL": result["image_url"].split("/")[-1],   # лишаємо тільки файл
             }
-            payload = {
-                'path': 'Results',
-                'rowData': row_data
-            }
-            print("Sending to Google Sheets:", json.dumps(payload, indent=2))
-            response = requests.post(SCRIPT_URL, json=payload)
-            return response.text
+            payload = {"path": "Results", "rowData": row_data}
+            print("Sending to sheets:", json.dumps(payload, indent=2))
+            r = requests.post(SCRIPT_URL, json=payload, timeout=10)
+            return r.text
         except Exception as e:
-            print(f"Error storing result: {str(e)}")
-            return "Error storing result"
+            return f"Error storing result: {e}"
+
 
     def get_user_results(self, username):
         """Get all analysis results for a specific user"""
