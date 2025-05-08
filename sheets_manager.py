@@ -54,8 +54,6 @@ class SheetsManager:
                 "Image_URL": result["image_url"].split("/")[-1],   # лишаємо тільки файл
             }
             payload = {"path": "Results", "rowData": row_data}
-            print("HTTP status:", r.status_code)
-            print("Body:", r.text[:200])
             print("Sending to sheets:", json.dumps(payload, indent=2))
             r = requests.post(SCRIPT_URL, json=payload, timeout=10)
             return r.text
