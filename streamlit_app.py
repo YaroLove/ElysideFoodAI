@@ -94,6 +94,13 @@ if uploaded and user and user != "-- new --":
         num_unique_plants = result.get("Number_of_unique_plants_this_meal", "N/A")
         st.write(f"Number of unique plants in this meal: **{num_unique_plants}**")
         
+        # Display plant-based ingredients list
+        plant_items = result.get("plant_items", [])
+        if plant_items:
+            st.subheader("Plant-based Ingredients")
+            for item in plant_items:
+                st.write(f"- {item}")
+        
         if st.button("Submit to Google Sheets"):
             try:
                 sheets.store_analysis_result(user, result)
