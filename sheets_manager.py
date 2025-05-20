@@ -44,6 +44,12 @@ class SheetsManager:
             plant_items = result.get('plant_items', [])
             num_unique_plants = result.get('Number_of_unique_plants_this_meal', 0)
             
+            # Get the original filename from the result
+            original_filename = result.get('original_filename', '')
+
+            # Debugging print for original_filename
+            print(f"DEBUG: Original filename received: {original_filename}")
+
             # Ensure all required fields are present
             llm_estimate = result.get('llm_estimate', {})
             row_data = {
@@ -56,7 +62,7 @@ class SheetsManager:
                 'Fiber': llm_estimate.get('fiber', 0),
                 'Number_of_unique_plants_this_meal': num_unique_plants,
                 'Plant_based_Ingredients': ', '.join([p.strip() for p in plant_items]),
-                'Image_URL': result.get('image_url', '').replace('/uploads', '')
+                'Image_URL': original_filename # Use the original filename here
             }
             
             payload = {
