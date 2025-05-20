@@ -39,12 +39,13 @@ async def analyze(path):
         plant_items = []
         raw_plant_section_text = "No plant section found."
         
-        plant_section = re.search(r'Plant-based Ingredients:\s*((?:- [^\n]+\n?)+)', details)
+        # Updated regex to be more robust in capturing the entire block
+        plant_section = re.search(r'Plant-based Ingredients:\s*(.*?)(?=\n\n|\Z)', details, re.DOTALL)
+        
         if plant_section:
-            raw_plant_section_text = plant_section.group(1)
+            raw_plant_section_text = plant_section.group(1).strip()
             
             # Split by lines, filter lines starting with '-', remove '-' and strip whitespace
-            # Ensure handling of empty lines or lines without '-' within the section
             processed_items = []
             for line in raw_plant_section_text.split('\n'):
                 stripped_line = line.strip()
