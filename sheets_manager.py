@@ -1,71 +1,118 @@
-# sheets_manager.py
-import requests, json, re
+import requests
+import json
 from datetime import datetime
+import re
 
-SCRIPT_URL = (
-    "https://script.google.com/macros/s/"
-    "AKfycbzTYZsWua8jcshxso13O8CoIhgevSkPKmyDrWLqTvo3NwAUIDJFyuNuhFbZXbuas8YD/exec"
-)
+SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzTYZsWua8jcshxso13O8CoIhgevSkPKmyDrWLqTvo3NwAUIDJFyuNuhFbZXbuas8YD/exec"
 
 class SheetsManager:
-    """Thin wrapper around Apps‑Script web‑app used as JSON API for Google Sheets."""
+    def __init__(self):
+        pass
 
-    # ──────────────────────────────── READ ──────────────────────────────────
-    def get_users(self) -> list[str]:
+    def get_users(self):
+        """Get list of all users from the spreadsheet"""
         try:
-            r = requests.get(SCRIPT_URL, params={"path": "Users", "action": "read"}, timeout=10)
-            data = r.json()
-            return [row["Users"] for row in data.get("data", []) if row.get("Users")]
+            response = requests.get(SCRIPT_URL, params={
+                'path': 'Users',
+                'action': 'read'
+            })
+            data = response.json()
+            if 'data' in data:
+                return [user['Users'] for user in data['data'] if user['Users']]
+            return []
         except Exception as e:
-            print("Error get_users:", e)
+            print(f"Error getting users: {str(e)}")
             return []
 
-    # ──────────────────────────────── WRITE (single cell) ───────────────────
-    def add_user(self, username: str) -> str:
+    def add_user(self, username):
+        """Add a new user to the spreadsheet"""
         try:
-            r = requests.get(
-                SCRIPT_URL,
-                params={"path": "Users", "action": "write", "Users": username},
-                timeout=10,
-            )
-            return r.text
+            response = requests.get(SCRIPT_URL, params={
+                'path': 'Users',
+                'action': 'write',
+                'Users': username
+            })
+            return response.text
         except Exception as e:
-            return f"Error add_user: {e}"
+            print(f"Error adding user: {str(e)}")
+            return "Error adding user"
 
-    # ──────────────────────────────── WRITE (one row) ───────────────────────
-    def store_analysis_result(self, username: str, result: dict) -> str:
-        """Append one row to ‘Results’ via GET => doGet(action='write')."""
+    def store_analysis_result(self, username, result):
+        """Store analysis result in the spreadsheet"""
         try:
-            plants = result.get("food_items", [])
-            row = {
-                "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "Username": username,
-                "Calories":   result["llm_estimate"].get("calories", ""),
-                "Protein":    result["llm_estimate"].get("protein", ""),
-                "Carbs":      result["llm_estimate"].get("carbohydrates", ""),
-                "Fat":        result["llm_estimate"].get("fat", ""),
-                "Fiber":      result["llm_estimate"].get("fiber", ""),
-                "Number_of_unique_plants_this_meal": len(set(plants)),
-                "Plant_based_Ingredients": ", ".join(plants),
-                "Image_URL":  result["image_url"].split("/")[-1],
+            plant_items = []
+            if 'plant_items' in result and isinstance(result['plant_items'], list):
+                plant_items = result['plant_items']
+            elif 'details' in result:
+                plant_section = re.search(r'Plant-based Ingredients:\s*((?:- [^\n]+\n?)+)', result['details'])
+                if plant_section:
+                    plant_items = re.findall(r'- ([^\n]+)', plant_section.group(1))
+            
+            # Кількість унікальних рослин у цьому прийомі їжі (без нормалізації)
+            num_unique_plants = len(set([p.strip() for p in plant_items]))
+            
+            # Ensure all required fields are present
+            llm_estimate = result.get('llm_estimate', {})
+            row_data = {
+                'Timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'Username': username,
+                'Calories': llm_estimate.get('calories', 0),
+                'Protein': llm_estimate.get('protein', 0),
+                'Carbs': llm_estimate.get('carbohydrates', 0),
+                'Fat': llm_estimate.get('fat', 0),
+                'Fiber': llm_estimate.get('fiber', 0),
+                'Number_of_unique_plants_this_meal': num_unique_plants,
+                'Plant_based_Ingredients': ', '.join([p.strip() for p in plant_items]),
+                'Image_URL': result.get('image_url', '').replace('/uploads', '')
             }
-
-            params = {"path": "Results", "action": "write", **row}
-            print("⇢ sending GET → Sheets\n", json.dumps(params, indent=2, ensure_ascii=False))
-
-            r = requests.get(SCRIPT_URL, params=params, timeout=10)
-            print("⇠ Google Sheets status:", r.status_code, r.text[:120])
-            r.raise_for_status()
-            return r.text
+            
+            payload = {
+                'path': 'Results',
+                'rowData': row_data
+            }
+            
+            print("Sending to Google Sheets:", json.dumps(payload, indent=2))
+            response = requests.post(SCRIPT_URL, json=payload)
+            
+            if response.status_code != 200:
+                print(f"Error response from Google Sheets: {response.text}")
+                return f"Error: {response.text}"
+                
+            response_data = response.json()
+            if 'error' in response_data:
+                print(f"Error from Google Sheets: {response_data['error']}")
+                return f"Error: {response_data['error']}"
+                
+            return response.text
         except Exception as e:
-            return f"Error storing result: {e}"
+            print(f"Error storing result: {str(e)}")
+            return f"Error storing result: {str(e)}"
 
-    # ──────────────────────────────── READ (history) ────────────────────────
-    def get_user_results(self, username: str) -> list[dict]:
+    def get_user_results(self, username):
+        """Get all analysis results for a specific user"""
         try:
-            r = requests.get(SCRIPT_URL, params={"path": "Results", "action": "read"}, timeout=10)
-            data = r.json()
-            return [row for row in data.get("data", []) if row.get("Username") == username]
-        except Exception as e:
-            print("Error get_user_results:", e)
+            response = requests.get(SCRIPT_URL, params={
+                'path': 'Results',
+                'action': 'read'
+            })
+            data = response.json()
+            if 'data' in data:
+                # Filter results for the specific user
+                user_results = [
+                    {
+                        'timestamp': row['Timestamp'],
+                        'llm_calories': row['LLM_Calories'],
+                        'db_calories': row['DB_Calories'],
+                        'fiber': row['Fiber'],  # New field
+                        'food_items': json.loads(row['Food_Items']),
+                        'plant_items': json.loads(row['Plant_Items']),  # New field
+                        'image_url': row['Image_URL']
+                    }
+                    for row in data['data']
+                    if row['Username'] == username
+                ]
+                return user_results
             return []
+        except Exception as e:
+            print(f"Error getting user results: {str(e)}")
+            return [] 
