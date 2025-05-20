@@ -37,19 +37,22 @@ async def analyze(path):
 
         # Extract plant_items and calculate unique plant count here
         plant_items = []
+        raw_plant_section_text = "No plant section found."
+        
         plant_section = re.search(r'Plant-based Ingredients:\s*((?:- [^\n]+\n?)+)', details)
         if plant_section:
-            # Debugging prints
-            print("Found plant section!")
-            print("plant_section.group(1):")
-            print(plant_section.group(1))
-
-            # Split by lines, filter lines starting with '-', remove '-' and strip whitespace
-            plant_items = [item.strip() for item in plant_section.group(1).split('\n') if item.strip().startswith('-')]
-            plant_items = [item[1:].strip() for item in plant_items] # Remove the leading '-'
+            raw_plant_section_text = plant_section.group(1)
             
-            # Debugging print for the final list
-            print("Final plant_items list:", plant_items)
+            # Split by lines, filter lines starting with '-', remove '-' and strip whitespace
+            # Ensure handling of empty lines or lines without '-' within the section
+            processed_items = []
+            for line in raw_plant_section_text.split('\n'):
+                stripped_line = line.strip()
+                if stripped_line.startswith('-'):
+                    item = stripped_line[1:].strip()
+                    if item:
+                        processed_items.append(item)
+            plant_items = processed_items
 
         num_unique_plants = len(set(plant_items))
 
@@ -64,7 +67,8 @@ async def analyze(path):
             "details": details,
             "image_url": f"/uploads/{os.path.basename(path)}",
             "plant_items": plant_items, # Include plant_items in the result
-            "Number_of_unique_plants_this_meal": num_unique_plants # Include unique count
+            "Number_of_unique_plants_this_meal": num_unique_plants, # Include unique count
+            "raw_plant_section_text": raw_plant_section_text # Include raw text for debugging
         }
 
 # --- Streamlit UI ------------------------------------------------------------
@@ -103,7 +107,6 @@ if uploaded and user and user != "-- new --":
 
     if result["success"]:
         st.success("Done!")
-        # st.json(result["llm_estimate"])
         
         st.subheader("Analysis Results")
         llm_estimate = result["llm_estimate"]
@@ -115,7 +118,9 @@ if uploaded and user and user != "-- new --":
         
         # Display the raw LLM response details for debugging
         with st.expander("Raw LLM Response Details (for debugging)"):
-            st.text(result.get('details', 'No details available.'))
+            st.text_area("Full LLM Response", result.get('details', 'No details available.'), height=300)
+            st.text_area("Extracted Plant Section Text", result.get('raw_plant_section_text', 'No plant section found.'), height=150)
+            st.write("Parsed Plant Items List:", result.get('plant_items', []))
 
         # Display number of unique plants
         num_unique_plants = result.get("Number_of_unique_plants_this_meal", "N/A")
