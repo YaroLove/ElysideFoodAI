@@ -40,16 +40,9 @@ class SheetsManager:
     def store_analysis_result(self, username, result):
         """Store analysis result in the spreadsheet"""
         try:
-            plant_items = []
-            if 'plant_items' in result and isinstance(result['plant_items'], list):
-                plant_items = result['plant_items']
-            elif 'details' in result:
-                plant_section = re.search(r'Plant-based Ingredients:\s*((?:- [^\n]+\n?)+)', result['details'])
-                if plant_section:
-                    plant_items = re.findall(r'- ([^\n]+)', plant_section.group(1))
-            
-            # Кількість унікальних рослин у цьому прийомі їжі (без нормалізації)
-            num_unique_plants = len(set([p.strip() for p in plant_items]))
+            # Plant items and unique plant count should now be calculated in the Streamlit app
+            plant_items = result.get('plant_items', [])
+            num_unique_plants = result.get('Number_of_unique_plants_this_meal', 0)
             
             # Ensure all required fields are present
             llm_estimate = result.get('llm_estimate', {})
