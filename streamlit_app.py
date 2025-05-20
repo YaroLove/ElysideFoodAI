@@ -94,7 +94,7 @@ if uploaded and user and user != "-- new --":
         result = asyncio.run(analyze(tmp_path))
 
     if result["success"]:
-        st.success("Готово!")
+        st.success("Done!")
         # st.json(result["llm_estimate"])
         
         st.subheader("Analysis Results")
@@ -105,6 +105,10 @@ if uploaded and user and user != "-- new --":
         st.write(f"Fat: **{llm_estimate.get('fat', 'N/A')}** g")
         st.write(f"Fiber: **{llm_estimate.get('fiber', 'N/A')}** g")
         
+        # Display the raw LLM response details for debugging
+        with st.expander("Raw LLM Response Details (for debugging)"):
+            st.text(result.get('details', 'No details available.'))
+
         # Display number of unique plants
         num_unique_plants = result.get("Number_of_unique_plants_this_meal", "N/A")
         st.write(f"Number of unique plants in this meal: **{num_unique_plants}**")
