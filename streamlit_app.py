@@ -109,6 +109,9 @@ if uploaded and user and user != "-- new --":
     if result["success"]:
         st.success("Done!")
         
+        # Display the uploaded image
+        st.image(tmp_path, caption=uploaded.name, use_column_width=True)
+        
         st.subheader("Analysis Results")
         llm_estimate = result["llm_estimate"]
         st.write(f"Calories: **{llm_estimate.get('calories', 'N/A')}** kcal")
@@ -136,6 +139,8 @@ if uploaded and user and user != "-- new --":
         
         if st.button("Submit to Google Sheets"):
             try:
+                # Pass the original filename to store_analysis_result
+                result['original_filename'] = uploaded.name
                 sheets.store_analysis_result(user, result)
                 st.toast("Data submitted successfully ", icon="✅")
             except Exception as e:
