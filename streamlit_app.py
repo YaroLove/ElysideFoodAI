@@ -47,13 +47,29 @@ async def analyze(path):
 # --- Streamlit UI ------------------------------------------------------------
 st.title("Elyside Food AI 🍽️")
 
-user = st.selectbox("Select User", ["-- new --"] + sheets.get_users())
+user = st.selectbox("Select User", ["-- new --"] + sheets.get_users(), key="user_select")
+new_user_input = None
+
 if user == "-- new --":
-    user = st.text_input("New username")
+    new_user_input = st.text_input("New username", key="new_username_input")
+    if st.button("Add User", key="add_user_button") and new_user_input:
+        # Check if user already exists (optional, but good practice)
+        if new_user_input in sheets.get_users():
+            st.warning("User already exists.")
+        else:
+            try:
+                sheets.add_user(new_user_input)
+                st.success(f"User '{new_user_input}' added. Please select them from the dropdown.")
+                # Rerun to update the selectbox with the new user
+                st.experimental_rerun()
+            except Exception as e:
+                st.error(f"Error adding user: {str(e)}")
+    user = new_user_input # Use the new user's name for analysis if added
 
 uploaded = st.file_uploader("Upload Food Image", type=["jpg", "jpeg", "png", "webp"])
 
-if uploaded and user:
+# Only proceed if a user is selected (either existing or newly added and confirmed)
+if uploaded and user and user != "-- new --":
     # тимчасово зберігаємо файл
     with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
         tmp.write(uploaded.read())
@@ -64,7 +80,20 @@ if uploaded and user:
 
     if result["success"]:
         st.success("Готово!")
-        st.json(result["llm_estimate"])
+        # st.json(result["llm_estimate"])
+        
+        st.subheader("Analysis Results")
+        llm_estimate = result["llm_estimate"]
+        st.write(f"Calories: **{llm_estimate.get('calories', 'N/A')}** kcal")
+        st.write(f"Protein: **{llm_estimate.get('protein', 'N/A')}** g")
+        st.write(f"Carbs: **{llm_estimate.get('carbohydrates', 'N/A')}** g")
+        st.write(f"Fat: **{llm_estimate.get('fat', 'N/A')}** g")
+        st.write(f"Fiber: **{llm_estimate.get('fiber', 'N/A')}** g")
+        
+        # Display number of unique plants
+        num_unique_plants = result.get("Number_of_unique_plants_this_meal", "N/A")
+        st.write(f"Number of unique plants in this meal: **{num_unique_plants}**")
+        
         if st.button("Submit to Google Sheets"):
             try:
                 sheets.store_analysis_result(user, result)
