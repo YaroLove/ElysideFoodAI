@@ -110,7 +110,7 @@ if uploaded and user and user != "-- new --":
         st.success("Done!")
         
         # Display the uploaded image
-        st.image(tmp_path, caption=uploaded.name, use_column_width=True)
+        st.image(tmp_path, caption=uploaded.name, use_container_width=True)
         
         st.subheader("Analysis Results")
         llm_estimate = result["llm_estimate"]
