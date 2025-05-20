@@ -29,9 +29,22 @@ async def analyze(path):
         res = await est.estimate_calories(path)
         if not res["success"]:
             return res
+        
         nutri = extract_nutrition(res["response"])
         food  = extract_food_items(res["response"])
         enhanced = enhance_nutrition_estimate(nutri, food)
+        details = res["response"]
+
+        # Extract plant_items and calculate unique plant count here
+        plant_items = []
+        plant_section = re.search(r'Plant-based Ingredients:\s*((?:- [^\n]+\n?)+)', details)
+        if plant_section:
+            # Split by lines, filter lines starting with '-', remove '-' and strip whitespace
+            plant_items = [item.strip() for item in plant_section.group(1).split('\n') if item.strip().startswith('-')]
+            plant_items = [item[1:].strip() for item in plant_items] # Remove the leading '-'
+
+        num_unique_plants = len(set(plant_items))
+
         return {
             "success": True,
             "llm_estimate": enhanced["llm_estimate"],
@@ -40,8 +53,10 @@ async def analyze(path):
             "food_matches": enhanced["food_matches"],
             "unmatched_items": enhanced["unmatched_items"],
             "confidence_score": enhanced["confidence_score"],
-            "details": res["response"],
-            "image_url": f"/uploads/{os.path.basename(path)}"
+            "details": details,
+            "image_url": f"/uploads/{os.path.basename(path)}",
+            "plant_items": plant_items, # Include plant_items in the result
+            "Number_of_unique_plants_this_meal": num_unique_plants # Include unique count
         }
 
 # --- Streamlit UI ------------------------------------------------------------
