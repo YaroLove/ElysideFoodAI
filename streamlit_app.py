@@ -39,9 +39,17 @@ async def analyze(path):
         plant_items = []
         plant_section = re.search(r'Plant-based Ingredients:\s*((?:- [^\n]+\n?)+)', details)
         if plant_section:
+            # Debugging prints
+            print("Found plant section!")
+            print("plant_section.group(1):")
+            print(plant_section.group(1))
+
             # Split by lines, filter lines starting with '-', remove '-' and strip whitespace
             plant_items = [item.strip() for item in plant_section.group(1).split('\n') if item.strip().startswith('-')]
             plant_items = [item[1:].strip() for item in plant_items] # Remove the leading '-'
+            
+            # Debugging print for the final list
+            print("Final plant_items list:", plant_items)
 
         num_unique_plants = len(set(plant_items))
 
